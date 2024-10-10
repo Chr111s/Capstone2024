@@ -1,0 +1,85 @@
+import numpy as np
+import pandas as pd
+import string
+import math
+import nltk
+from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.corpus import stopwords, cmudict
+from collections import Counter
+
+nltk.download('cmudict')
+nltk.download('punkt')
+nltk.download('stopwords')
+
+cmu_dictionary = cmudict.dict()
+
+def clear_punc_stopwords_and_digits(text):
+    table = text.maketrans("","",string.punctuation) 
+    text = text.translate(table)
+    tokens = word_tokenize(text, language='english')
+    tokens = [i for i in tokens if not i.isdigit()]
+    stop = stopwords.words('english')
+    return [word for word in tokens if word.lower() not in stop]
+
+# Readability Features
+
+def syllable_count(word):
+    # Returns the number of syllables in a word using CMU Pronouncing Dictionary.
+    if word.lower() in cmu_dictionary:
+        syllables_list = [len([y for y in x if y[-1].isdigit()]) for x in cmu_dictionary[word.lower()]]
+        return max(syllables_list)
+    else:
+        # fallback if word not in CMU dict, assume one syllable per vowel cluster
+        vowels = "aeiouy"
+        syllable_count = 0
+        prev_char_was_vowel = False
+        for char in word:
+            if char in vowels:
+                if not prev_char_was_vowel:
+                    syllable_count += 1
+                prev_char_was_vowel = True
+            else:
+                prev_char_was_vowel = False
+        return syllable_count
+
+def flesch_reading_ease(text):
+    filtered_tokens = clear_punc_stopwords_and_digits(text)
+    total_sentences = len(sent_tokenize(text))
+    total_words = len(filtered_tokens)
+    total_syllables = sum([syllable_count(word) for word in filtered_tokens])
+    
+    # Flesch Reading Ease formula
+    fre_score = 206.835 - (1.015 * (total_words / total_sentences)) - (84.6 * (total_syllables / total_words))
+    return fre_score
+
+def flesch_kincaid_grade_level(text):
+    filtered_tokens = clear_punc_stopwords_and_digits(text)
+    total_sentences = len(sent_tokenize(text))
+    total_words = len(filtered_tokens)
+    total_syllables = sum([syllable_count(word) for word in filtered_tokens])
+    
+    # Flesch-Kincaid Grade Level formula
+    fk_score = 0.39 * (total_words / total_sentences) + 11.8 * (total_syllables / total_words) - 15.59
+    return fk_score
+
+def gunning_fog_index(text):
+    filtered_tokens = clear_punc_stopwords_and_digits(text)
+    total_sentences = len(sent_tokenize(text))
+    total_words = len(filtered_tokens)
+    
+    # Count complex words (words with three or more syllables)
+    complex_words = [word for word in filtered_tokens if syllable_count(word) >= 3]
+    
+    # Gunning Fog Index formula
+    fog_index = 0.4 * ((total_words / total_sentences) + 100 * (len(complex_words) / total_words))
+    return fog_index
+
+# Example of usage
+test_text = """The quiet hum of the city blended with the rhythmic footsteps of people hurrying 
+through the streets, each absorbed in their own world. Above, the sky was painted in soft hues of pink and 
+orange, signaling the end of another day. As the sun dipped below the horizon, the lights of the buildings 
+flickered on, illuminating the paths of those who still had miles to go before rest."""
+
+print("Flesch Reading Ease:", flesch_reading_ease(test_text))
+print("Flesch-Kincaid Grade Level:", flesch_kincaid_grade_level(test_text))
+print("Gunning Fog Index:", gunning_fog_index(test_text))
